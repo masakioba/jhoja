@@ -1,0 +1,1413 @@
+--- main.cpp	Wed Apr 14 15:07:27 2010
++++ jhoja.cpp	Sat Mar 24 17:04:25 2018
+@@ -1,3 +1,11 @@
++/* jhoja Ver 1.01
++ Java class file diss assembler for Jasmin assembler code.
++SWAG javap2 based.(http://www.swag.uwaterloo.ca/javap2/index.html)
++Apache v2 license.
++http://www.nabeta.tk/en/
++admin@nabeta.tk
++*/
++#define WIN32
+ #if defined(WIN32)
+ #define _CRT_SECURE_NO_DEPRECATE
+ #endif
+@@ -8,6 +16,9 @@
+ #include <malloc.h>
+ #include <fcntl.h>
+ #include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
+ 
+ #if defined(WIN32)
+ #include <io.h>
+@@ -41,6 +52,10 @@
+ 
+ // http://java.sun.com/docs/books/vmspec/2nd-edition/html/ClassFile.doc.html
+ 
++int Out = 1;
++u4T Label[100000];
++int Lcnt = 0;
++
+ typedef enum {
+ 	CONSTANT_Null               =  0,	// An unused constant_pool entry
+ 	CONSTANT_Utf8               =  1,
+@@ -136,6 +151,7 @@
+ static int  g_tables         = 0;
+ 
+ static classFileT	g_cf;
++int Guardf = 0; /* add decompile protection code; */
+ 
+ const char *
+ constantName(int i)
+@@ -232,7 +248,8 @@
+ 				assert((c & 0xc0) == 0x80);		// y
+ 			} else {
+ 				// Three byte encoding
+-				assert((c & 0xd0) == 0xd0);		// x
++
++        //assert((c & 0xd0) == 0xd0);    // x BUG??
+ 				c = *++P;
+ 				assert((c & 0xc0) == 0x80);		// y
+ 				c = *++P;
+@@ -244,34 +261,120 @@
+ 	return(ret);
+ }
+ 
+-static void
+-dumpUnicode(const u2T *stringP)
++int ucs2to_utf8(const u2T *ucs2s,char *utf8s)
+ {
+-#ifdef WIN32
+-	printf("%S", stringP);
+-#else 
+-	extern int errno;
++  int ucs2cnt, utf8cnt = 0;
+ 
+-	const register u2T *P;
+-	u2T	c;
+-//	wchar_t	c1;
++  ucs2cnt = 0;
++  utf8cnt = 0;
++  while(1){
++    if(ucs2s[ucs2cnt] == (u2T)0){
++      break;
++    }
++    if ( (unsigned short)ucs2s[ucs2cnt] <= 0x007f) {
++        utf8s[utf8cnt] = ucs2s[ucs2cnt];
++      utf8cnt += 1;
++    } else if ( (unsigned short)ucs2s[ucs2cnt] <= 0x07ff) {
++        utf8s[utf8cnt] = ((ucs2s[ucs2cnt] & 0x07C0) >> 6 ) | 0xc0; // 2002.08.17 fix 
++        utf8s[utf8cnt+1] = (ucs2s[ucs2cnt] & 0x003f) | 0x80;
++      utf8cnt += 2;
++    }
++    else
++    if(0xd800 <= ucs2s[ucs2cnt] && ucs2s[ucs2cnt] <= 0xdbff && 0xdc00 <= ucs2s[ucs2cnt+1] && ucs2s[ucs2cnt+1] <= 0xdfff){
++      //surrogate pair
++      unsigned long sg;
++      sg = (ucs2s[ucs2cnt] & 0x3ff) << 10;
++      sg |= (ucs2s[ucs2cnt+1] & 0x3ff);
++      sg += 0x10000;
++      utf8s[utf8cnt] = ((sg & 0x1c00000) >> 18) | 0xf0;
++      utf8s[utf8cnt+1] = ((sg & 0x3f000) >> 12) | 0x80;
++      utf8s[utf8cnt+2] = ((sg & 0xfc0) >> 6) | 0x80;
++      utf8s[utf8cnt+3] = (sg & 0x003f) | 0x80;
++      ucs2cnt++;
++      utf8cnt += 4;
++    }
++    else{
++      utf8s[utf8cnt] = ((ucs2s[ucs2cnt] & 0xf000) >> 12) | 0xe0; // 2002.08.04 fix
++      utf8s[utf8cnt+1] = ((ucs2s[ucs2cnt] & 0x0fc0) >> 6) | 0x80;
++      utf8s[utf8cnt+2] = (ucs2s[ucs2cnt] & 0x003f) | 0x80;
++      utf8cnt += 3;
++    }
++    ucs2cnt++;
++  }
++  utf8s[utf8cnt] = '\0';
+ 
+-	// Under g++ sizeof(wchar_t) == 4 : YUK
+-	// Worse fputwc returns an error about being unable to seek when attempting
+-	// to write a unicode character.  For the present fall back on simply
+-	// emitting ascii characters, hoping that this is ok.
+-	// N.B. This is not a problem under windows
++  return utf8cnt;
++}
+ 
+-	for (P = stringP; c = *P; ++P) {
+-		fputc(c, stdout);
++static void
++dumpUnicode(const u2T *stringP)
++{
++  //u2T  c;
++  //const register u2T *P;
++  char *cp;
++  char bc;
++  char utf8s[15000];
++  //if(Out)printf("%S", stringP);
++  utf8s[0] = 0;
++  ucs2to_utf8(stringP,(char *)utf8s);
++  for(cp = utf8s; bc = *cp; ++cp){
++    if(bc == '"'){
++      if(Out)fprintf(stdout,"\\\"");
++    }
++    else
++    if(bc == '\\'){
++      if(Out)fprintf(stdout,"\\\\");
++    }
++    else
++    if(bc == (char)0xa){
++      // put "\n"
++      if(Out)fprintf(stdout,"\\n");
++    }
++    else
++    if(bc == (char)0xd){
++      // put "\r"
++      if(Out)fprintf(stdout,"\\r");
++    }
++    else
++    if(Out)fputc(bc, stdout);
++  }
+ /*
+-		c1 = c;
+-		if (c1 != fputwc(c1, stdout)) {
+-			perror("writing unicode");
++  for (P = stringP; c = *P; ++P) {
++    if(*P >= 128){
++      u2T ucs2[10];
++      ucs2s[0] = *P;
++      ucs2s[1] = 0;
++      ucs2to_utf8(ucs2s,(char *)utf8s);
++      u2T b;
++      unsigned char a;
++      b = *P;
++      b >>= 8;
++      a = b;
++
++      if(Out)fprintf(stdout,utf8s);
++    }
++    else
++    if(c == (u2T)'"'){
++      if(Out)fprintf(stdout,"\\\"");
++    }
++    else
++    if(c == (u2T)'\\'){
++      if(Out)fprintf(stdout,"\\\\");
++    }
++    else
++    if(c == (u2T)0xa){
++      // put "\n"
++      if(Out)fprintf(stdout,"\\n");
++    }
++    else
++    if(c == (u2T)0xd){
++      // put "\r"
++      if(Out)fprintf(stdout,"\\r");
+ 		}
+- */
++    else
++    if(Out)fputc(c, stdout);
+ 	}
+-#endif
++*/
+ }
+ 	
+ u1T *
+@@ -340,13 +443,13 @@
+ 	mask = 1;
+ 	for (i = 0; i < 14; ++i) {
+ 		if (access & mask) {
+-			fputs(accessName[i], stdout);
++      if(Out)fputs(accessName[i], stdout);
+ 		}
+ 		mask <<= 1;
+ 	}
+ 	mask = (access & 0x8000);
+ 	if (mask) {
+-		printf("0x%04x ", mask);
++    if(Out)printf("0x%04x ", mask);
+ 	}
+ }
+ 
+@@ -384,6 +487,18 @@
+ 	return(stringP);
+ }
+ 
++static u2T *
++get_Utf8_sono2(int index)
++{
++  cp_infoT  *cpP = g_cf.m_constant_poolP + index;
++  u2T      *stringP;
++
++  assert(index > 0 && index < g_cf.m_constant_pool_count);
++  assert(cpP->tag == CONSTANT_Utf8);
++  stringP = cpP->u.stringP;
++  return(stringP);
++}
++
+ static void
+ dump_Utf8(int index)
+ {
+@@ -402,33 +517,38 @@
+ 		u1T		*P1;
+ 		
+ //		dumpUnicode(descriptorP);
+-//		fputs("->", stdout);
++//    if(Out)fputs("->", stdout);
+ 
+ 		for (;;) {
+ 			switch (c = *descriptorP++) {
++      //case '\\':
++        //if(Out)fprintf(stdout,"\\\\");
++        //continue;
+ 			case 0:
+ 				return;
+ 			case '[':
+ 				++dimension;
+ 				continue;
+-				break;
+ 			case 'L':
+ 				if (parameter > 1) {
+-					fputs(", ", stdout);
++          if(Out)fputs(", ", stdout);
+ 				}
+ 				for (; (c1 = *descriptorP) && c1 != ';'; ++descriptorP) {
+-					if (c1 == '/') {
+-						c1 = '.';
++          //if (c1 == '/') {
++            //c1 = '.';
++          //}
++          if (c1 == '.') {
++            c1 = '/';
+ 					}
+-					fputc(c1, stdout);
++          if(Out)fputc(c1, stdout);
+ 				}
+ 				goto show_array;
+ 			case '(':
+-				fputc('(', stdout);
++        if(Out)fputc('(', stdout);
+ 				parameter = 1;
+ 				continue;
+ 			case ')':
+-				fputs(") returns ", stdout);
++        if(Out)fputs(") returns ", stdout);
+ 				parameter = 0;
+ 				continue;
+ 			case 'B':
+@@ -464,12 +584,12 @@
+ 				assert(0);
+ 			}
+ 			if (parameter > 1) {
+-				fputs(", ", stdout);
++        if(Out)fputs(", ", stdout);
+ 			}
+-			fputs(P, stdout);
++      if(Out)fputs(P, stdout);
+ show_array:
+ 			for (; dimension > 0; --dimension) {
+-				fputs("[]", stdout);
++        if(Out)fputs("[]", stdout);
+ 			}
+ 			if (parameter) {
+ 				if (localVariableTableP) {
+@@ -484,7 +604,7 @@
+ 						P1 += sizeof(u2T) /* descriptor slot */;
+ 						P1  = getU2(P1, &index);
+ 						if (index == offset) {
+-							fputc(' ', stdout);
++              if(Out)fputc(' ', stdout);
+ 							dump_Utf8(name_slot);
+ 							break;
+ 					}	}
+@@ -506,24 +626,24 @@
+ 
+ 	switch (cpP->tag) {
+ 	case CONSTANT_Integer:
+-		printf("/* Integer */ %d", cpP->u.ival);
++    if(Out)printf("%d", cpP->u.ival);
+ 		break;
+ 	case CONSTANT_Float:
+-		printf("/* Float */ %f", cpP->u.fval);
++    if(Out)printf("%f", cpP->u.fval);
+ 		break;
+ 	case CONSTANT_Long:
+-		printf("/* Long */ %lld", (long long) cpP->u.lval);
++    if(Out)printf("%lld", (long long) cpP->u.lval);
+ 		break;
+ 	case CONSTANT_Double:
+-		printf("/* Double */ %lf", cpP->u.dval);
++    if(Out)printf("%lf", cpP->u.dval);
+ 		break;
+ 	case CONSTANT_String:
+-		fputc('"', stdout);
++    if(Out)fputc('"', stdout);
+ 		dump_Utf8(cpP->u.ref.index1);
+-		fputc('"', stdout);
++    if(Out)fputc('"', stdout);
+ 		break;
+ 	case CONSTANT_Class:
+-		fputs("/* Class */ ", stdout);
++    //if(Out)fputs("/* Class */ ", stdout);
+ 		dump_Utf8(cpP->u.ref.index1);
+ 		break;
+ 	default:
+@@ -554,23 +674,30 @@
+ 	P = get_Utf8(cpP->u.ref.index1);
+ 
+ 	for (; (c = *P) ; ++P) {
+-		if (c == '/') {
+-			c = '.';
++    //if (c == '/') {
++      //c = '.';
++    //}
++    if (c == '.') {
++      c = '/';
+ 		}
+-		fputc(c, stdout);
++    if(Out)fputc(c, stdout);
+ 	}
+ }
+ 
+ static void
+ dump_nameAndType(int index)
+ {
++  unsigned short *tp;
+ 	cp_infoT	*cpP = g_cf.m_constant_poolP + index;
+ 
+ 	assert(index > 0 && index < g_cf.m_constant_pool_count);
+ 
+ 	assert(cpP->tag == CONSTANT_NameAndType);
+ 	dump_Utf8(cpP->u.ref.index1);
+-	fputc(' ', stdout);
++  tp = get_Utf8_sono2(cpP->u.ref.index2);
++  if(*tp != (unsigned short)'('){    
++    if(Out)fputc(' ', stdout);
++  }
+ 	dump_descriptor(get_Utf8(cpP->u.ref.index2), 0, 0);
+ }
+ 
+@@ -583,7 +710,8 @@
+ 
+ 	assert(cpP->tag == CONSTANT_Fieldref);
+ 	dump_class(cpP->u.ref.index1);
+-	fputc('.', stdout);
++  //if(Out)fputc('.', stdout);
++  if(Out)fputc('/', stdout);
+ 	dump_nameAndType(cpP->u.ref.index2);
+ }
+ 
+@@ -596,7 +724,8 @@
+ 
+ 	assert(cpP->tag == CONSTANT_Methodref);
+ 	dump_class(cpP->u.ref.index1);
+-	fputc('.', stdout);
++  //if(Out)fputc('.', stdout);
++  if(Out)fputc('/', stdout);
+ 	dump_nameAndType(cpP->u.ref.index2);
+ }
+ 
+@@ -609,7 +738,8 @@
+ 
+ 	assert(cpP->tag == CONSTANT_InterfaceMethodref);
+ 	dump_class(cpP->u.ref.index1);
+-	fputc('.', stdout);
++  //if(Out)fputc('.', stdout);
++  if(Out)fputc('/', stdout);
+ 	dump_nameAndType(cpP->u.ref.index2);
+ }
+ 
+@@ -622,13 +752,13 @@
+ 	cpP = g_cf.m_constant_poolP;
+ 	for (i = 0; i < g_cf.m_constant_pool_count; ++i) {
+ 		if (cpP->tag == CONSTANT_Class) {
+-			fputs("imports ", stdout);
++      if(Out)fputs(";imports ", stdout);
+ 			dump_class(i);
+-			printf(";\n");
++      if(Out)fprintf(stdout,";\n");
+ 		}
+ 		++cpP;
+ 	}
+-	fputc('\n', stdout);
++  if(Out)fputc('\n', stdout);
+ }
+ 
+ static void
+@@ -648,12 +778,12 @@
+ 	u1T	*P;
+ 	int	i;
+ 
+-	fputs("\n\tthrows ", stdout);
++  if(Out)fputs("\n\t.throws ", stdout);
+ 
+ 	P = getU2(infoP, &number_of_exceptions);
+ 	for (i = 0; i < number_of_exceptions; ++i) {
+ 		if (i) {
+-			fputs(", ", stdout);
++      if(Out)fputs(", ", stdout);
+ 		}
+ 		P = getU2(P, &slot);
+ 		dump_class(slot);
+@@ -670,11 +800,11 @@
+ 	P = getU2(infoP, &cnt);
+ 	for (i = 0; i < cnt; ++i) {
+ 		P = getU2(P, &u2);
+-		printf("pc=%d ", (int) u2);
++    if(Out)printf("pc=%d ", (int) u2);
+ 		P = getU2(P, &u2);
+-		printf("lineno=%d; ", (int) u2);
++    if(Out)printf("lineno=%d; ", (int) u2);
+ 	}
+-	fputc('\n', stdout);
++  if(Out)fputc('\n', stdout);
+ 
+ 	assert ((P - infoP) == length);
+ }
+@@ -694,14 +824,14 @@
+ 		P = getU2(P, &name_slot);
+ 		P = getU2(P, &descriptor_slot);
+ 		P = getU2(P, &index);
+-		printf("index=%d ", (int) index);
+-		printf("start_pc=%d ", (int) start_pc);
+-		printf("length=%d ", (int) pc_length);
+-		fputs("nameP=", stdout);
++    if(Out)printf("index=%d ", (int) index);
++    if(Out)printf("start_pc=%d ", (int) start_pc);
++    if(Out)printf("length=%d ", (int) pc_length);
++    if(Out)fputs("nameP=", stdout);
+ 		dumpUnicode(get_Utf8(name_slot));
+-		fputs(" descriptorP=", stdout);
++    if(Out)fputs(" descriptorP=", stdout);
+ 		dump_descriptor(get_Utf8(descriptor_slot), 0, 0);
+-		fputc('\n', stdout);
++    if(Out)fputc('\n', stdout);
+ 	}
+ 	assert ((P - infoP) == length);
+ }
+@@ -719,25 +849,26 @@
+ 		P = getU2(P, &outer_class);
+ 		P = getU2(P, &inner_name);
+ 		P = getU2(P, &access);
+-		fputs("\n//", stdout);
++    if(Out)fputc('\n', stdout);
++    if(Out)fputs(";//", stdout);
+ 		if (outer_class) {
+-			fputs(" outerclass=", stdout);
++      if(Out)fputs(" outerclass=", stdout);
+ 			dump_class(outer_class);
+ 		}
+ 		
+ 		if (inner_class) {
+-			fputs(" innerclass=", stdout);
++      if(Out)fputs(" innerclass=", stdout);
+ 			dump_class(inner_class);
+ 		}
+ 		if (inner_name) {
+-			fputs(" innername=", stdout);
++      if(Out)fputs(" innername=", stdout);
+ 			dump_Utf8(inner_name);
+ 		}
+-		fputc(' ', stdout);
++    if(Out)fputc(' ', stdout);
+ 		dump_access(access);
+ 	}
+ 	assert ((P - infoP) == length);
+-	fputc('\n', stdout);
++  if(Out)fputc('\n', stdout);
+ }
+ 
+ /*
+@@ -798,11 +929,11 @@
+ 	P = getU2(infoP, &class_index);
+ 	P = getU2(P,     &method_index);
+ 	
+-	fputs("// EnclosingMethod ", stdout);
++  if(Out)fputs(" ;// EnclosingMethod ", stdout);
+ 
+ 	dump_class(class_index);
+ 	if (method_index) {
+-		fputs(" ", stdout);
++    if(Out)fputs(" ", stdout);
+ 		dump_nameAndType(method_index);
+ 	}
+ }
+@@ -812,14 +943,17 @@
+ {
+ 	localVariableT	*localVariableP;
+ 	const u2T		*nameP;
++  int count;
+ 
++  count = 0;
+ 	if (localVariableP = localVariablesP) {
+ 		for (; nameP = localVariableP->nameP; ++localVariableP) {
+ 			if (localVariableP->index == slot && localVariableP->start_pc <= pc && localVariableP->end_pc >= pc) {
++        if(Out)fprintf(stdout,"\t;",count++);
+ 				dumpUnicode(nameP);
+-				fputc(' ' , stdout);
++        if(Out)fputc(' ' , stdout);
+ 				dump_descriptor(localVariableP->descriptorP, 0, 0);
+-				fputc('\t', stdout);
++        if(Out)fputc('\t', stdout);
+ 				return(1);
+ 	}	}	}
+ 	return(0);
+@@ -869,9 +1003,9 @@
+ 
+ 	static const opcodeT opcodes[] = {
+ 
+-/*  00 (0x00) */ {"noop",			0, -1, "No-op"},
++/*  00 (0x00) */ {"nop",      0, -1, "No-op"},
+ /*  01 (0x01) */ {"aconst_null",	0, -1, "Stack ... -> ...,null"},
+-/*  02 (0x02) */ {"aconst_m1",		0, -1, "Stack ... -> ...,-1"},
++/*  02 (0x02) */ {"iconst_m1",    0, -1, "Stack ... -> ...,-1"},
+ /*  03 (0x03) */ {"iconst_0",		0, -1, "Stack ... -> ...,[int] 0"},
+ /*  04 (0x04) */ {"iconst_1",		0, -1, "Stack ... -> ...,[int] 1"},
+ /*  05 (0x05) */ {"iconst_2",		0, -1, "Stack ... -> ...,[int] 2"},
+@@ -1065,7 +1199,7 @@
+ /* 193 (0xc1) */ {"instanceof",		  U2X, -1, "Stack ...,ref -> ...,(1 if instanceof else 0)"},
+ /* 194 (0xc2) */ {"monitorenter",		0, -1, "Stack ..., ref -> ... & exclusive access to ref"},
+ /* 195 (0xc3) */ {"monitorexit",		0, -1, "Stack ..., ref -> ... & release lock on ref"},
+-/* 196 (0xc4) */ {"wide",			    0, -1, "Treat next instruction as having wider argument"},
++/* 196 (0xc4) */ {";wide",          0, -1, "Treat next instruction as having wider argument"},
+ /* 197 (0xc5) */ {"multianewarray",	  U2X, -1, "Stack ...,d1,d2,...dn -> array[d1][d2]...[dn] where n=arg2"},
+ /* 198 (0xc6) */ {"ifnull",   BRANCHX|U2X, -1, "Stack ...,ref -> ... & if ref==null"},
+ /* 199 (0xc7) */ {"ifnonnull",BRANCHX|U2X, -1, "Stack ...,ref -> ... & if ref!=null"},
+@@ -1130,10 +1264,10 @@
+ 	lineNumberT		*lineNumbersP    = 0;
+ 	localVariableT	*localVariablesP = 0;
+ 
+-	u2T			max_stack, max_locals, u2;
++  u2T      max_stack, max_locals, u2,u2_bak;
+ 	u4T			u4, code_length, branch;
+ 	signed int	s4;
+-	u1T			u1, *P, *startCodeP, *endCodeP;
++  u1T      u1, *P, *P_bak, *startCodeP, *endCodeP;
+ 	lineNumberT	*lineNumberP;
+ 	u4T			exception_table_length, attributes_count, lineno_changes_at_pc, current_lineno, pc, flags;
+ 	int			code, variable;
+@@ -1142,14 +1276,15 @@
+ 
+ 	char		buffer[32];
+ 
+-	fputs("\n\n", stdout);
++  if(Out)fputc('\n', stdout);
+ 
+ 	P = infoP;
+ 
+ 	P = getU2(P, &max_stack);
+ 	P = getU2(P, &max_locals);
+ 
+-	printf("\tmax_stack=%d max_locals=%d\n\n", max_stack, max_locals);
++  if(Out)printf("\t.limit stack %d\n",max_stack);
++  if(Out)printf("\t.limit locals %d\n",max_locals);
+ 
+ 	current_lineno       = 0xFFFFFFFF;
+ 	lineno_changes_at_pc = 0x7FFFFFFF;
+@@ -1159,10 +1294,13 @@
+ 	endCodeP   = P = startCodeP + code_length;
+ 
+ 	P = getU2(P, &u2);
++  P_bak = P;
++  u2_bak = u2;
++
+ 	if (exception_table_length = u2) {
+ 		unsigned int start_pc, end_pc, handler_pc, i;
+ 
+-		fputs("\nException table\n", stdout);
++    //if(Out)fputs("\nException table\n", stdout);
+ 		for (i = 0; i < exception_table_length; ++i) {
+ 			P = getU2(P, &u2);
+ 			start_pc = u2;
+@@ -1170,24 +1308,24 @@
+ 			end_pc = u2;
+ 			P = getU2(P, &u2);
+ 			handler_pc = u2;
+-			printf("\tstart_pc=%d\tend_pc=%d\tbranch_pc=%d", start_pc, end_pc, handler_pc); 
++      //if(Out)printf("\tstart_pc=%d\tend_pc=%d\tbranch_pc=%d", start_pc, end_pc, handler_pc); 
+ 			P = getU2(P, &u2);
+ 			if (u2) {
+-				fputc('\t', stdout);
+-				dump_class(u2);
++        //if(Out)fputc('\t', stdout);
++        //dump_class(u2);
++      }
++      //if(Out)fputc('\n', stdout);
++    }
+ 			}
+-			fputc('\n', stdout);
+-	}	}
+-
+ 	P = getU2(P, &u2);
+ 	if (attributes_count = u2) {
+ 		attribute_infoT	*attributesP    = (attribute_infoT *) alloca(sizeof(attribute_infoT) * attributes_count);
+ 		attribute_infoT	*attributeP     = attributesP;
+ 		u4T				attribute_length;
+ 		const u2T		*nameP;
+-		unsigned int	i;
++    unsigned int  i,varc;
+ 
+-		for (i = 0; i < attributes_count; ++i) {
++    for (i = 0,varc = 0; i < attributes_count; ++i) {
+ 			P     = getU2(P, &attributeP->attribute_name_index);
+ 			nameP = get_Utf8(attributeP->attribute_name_index);
+ 
+@@ -1235,6 +1373,13 @@
+ 					P = getU2(P, &u2);
+ 					localVariableP->descriptorP = get_Utf8(u2);
+ 					P = getU2(P, &localVariableP->index);
++//
++        if(Out)fprintf(stdout,"\t;.var %d is\t",varc++);
++        dumpUnicode(localVariableP->nameP);
++        if(Out)fputc(' ' , stdout);
++        dump_descriptor(localVariableP->descriptorP, 0, 0);
++        if(Out)fputc('\n' , stdout);
++//
+ 				}
+ 				endLocalVariableP->nameP = 0;
+ 				assert ((P - attributeP->infoP) == attribute_length);
+@@ -1243,15 +1388,22 @@
+ 			P += attribute_length;
+ 			++attributeP;
+ 		}
++    /*
++    no need
+ 		if (attributeP != attributesP) {
+-			fputs("\nAttributes\n", stdout);
+-			dump_attributes(attributeP-attributesP, attributesP);
+-	}	}
++      //if(Out)fputs("\nAttributes\n", stdout);
++      //dump_attributes(attributeP-attributesP, attributesP);
++    }
++    */
++  }
+ 	assert(P - infoP == length);
+ 
+-	fputc('\n', stdout);
++  if(Out)fputc('\n', stdout);
+ 
++  int old_cn;
++  old_cn = -99;
+ 	for (P = startCodeP; P < endCodeP; ) {
++    sprintf(buffer,"");
+ 		pc = (u4T) (P - startCodeP);
+ 		if (lineNumberP) {
+ 			while (pc >= lineno_changes_at_pc) {
+@@ -1259,15 +1411,61 @@
+ 				++lineNumberP;
+ 				lineno_changes_at_pc = lineNumberP->start_pc;
+ 			}
+-			sprintf(buffer, "%d/%u:", current_lineno, pc);
++
++      sprintf(buffer,"\t");
++      if(old_cn != current_lineno){
++        if(Out){
++          for(int lc=0;lc < Lcnt;++lc){
++            if(Label[lc] == pc){
++              sprintf(buffer, "\t;.line %u\nZ%u:\n\t",current_lineno,pc);
++              break;
++            }
++          } 
++        }
++      }
++      else{
++        if(Out){
++          for(int lc=0;lc < Lcnt;++lc){
++            if(Label[lc] == pc){
++              sprintf(buffer, "Z%u:\n\t",pc);
++              break;
++            }
++          } 
++        }
++      }
++      old_cn = current_lineno;
++      //if(Out)printf("%-12.12s", buffer);
++      if(Out)printf("%s", buffer);
+ 		} else {
+-			sprintf(buffer, "%u:", pc);
++      sprintf(buffer,"\t");
++      if(Out){
++        for(int lc=0;lc < Lcnt;++lc){
++          if(Label[lc] == pc){
++            sprintf(buffer, "Z%u:\n\t",pc);
++            //if(Out)fputc('\n', stdout);
++            //if(Out)fputc('\t', stdout);
++            break;
++          }
++        } 
++      }
++      //if(Out)printf("%-12.12s", buffer);
++      if(Out)printf("%s", buffer);
+ 		}
+-		printf("%-12.12s", buffer);
+ 
+ 		code = *P++;
+ 		opcodeP = opcodes + code;
+-		printf("%-16.16s", opcodeP->nameP);
++    //if(Out)printf("%-16.16s", opcodeP->nameP);
++    if(wide_index){
++      if(strcmp(opcodeP->nameP,"iinc") == 0){
++        if(Out)printf("iinc_w");
++      }
++      else{
++        if(Out)printf("iinc");
++      }
++    }
++    else{
++      if(Out)printf("%s", opcodeP->nameP);
++    }
+ 		flags = opcodeP->flags;
+ 
+ 		if (flags & INVALIDX) {
+@@ -1302,24 +1500,36 @@
+ 			if (variable < 0) {
+ 				variable = u4;
+ 			}
++      if (opcodeP->variable < 0) {
++        if(Out)printf(" %d ", u4);
++      }
++      dump_local_variable(P-startCodeP, variable, localVariablesP);
++/*
+ 			if (!dump_local_variable(P-startCodeP, variable, localVariablesP) && opcodeP->variable < 0) {
+-				printf("%d\t", u4);
+-		}	}
++        if(Out)printf(" %d ", u4);
++      }
++*/
++    }
+ 	
+ 		// Pushing Constants
+ 		// http://sunsite.ee/java/vmspec/vmspec-14.html#HEADING14-0
++    int notabf;
++    notabf = 0;
+ 
+ 		switch (code) {
+ 		case 16:
+ 		case 17:
+-			printf("%d", s4);
++      if(Out)fputc('\t', stdout);
++      if(Out)printf("%d", s4);
+ 			break;
+ 		case 18:
+ 		case 19:
+ 		case 20:
++      if(Out)fputc('\t', stdout);
+ 			dump_constant(u4);
+ 			break;
+ 		case 132:
++      notabf = 1;
+ 			if (wide_index) {
+ 				P = getU2(P, &u2);
+ 				s4 = ((signed short) u2);
+@@ -1328,7 +1538,11 @@
+ 				s4 = *((signed char *) P);
+ 				++P;
+ 			}
+-			printf("%d\t", s4);
++      //if(Out)fputc('\t', stdout);
++      if(Out)printf("%d", s4);
++      break;
++    case 167:  // goto
++      notabf = 1;
+ 			break;
+ 		case 170:	// tableswitch
+ 		{
+@@ -1343,15 +1557,17 @@
+ 			P = getU4(P, (u4T *) &low);
+ 			P = getU4(P, (u4T *) &high);
+ 
++      if(Out)fputc('\t', stdout);
+ 			for (i = low; i <= high; ++i) {
+ 				P = getU4(P, (u4T *) &jump);
+-				printf("%d:%d ", i, (int) (((s4T) pc)+ jump) );
++        if(Out)printf("%d:%d ", i, (int) (((s4T) pc)+ jump) );
+ 			}
+-			printf("%d\t", (int) (((s4T) pc)+ def) );
++      if(Out)printf("%d\t", (int) (((s4T) pc)+ def) );
+ 			break;
+ 		}
+ 		case 171:	// LookupSwitch
+ 		{
++      if(Out)fputc('\t', stdout);
+ 			s4T	def, pairs, match, jump, i;
+ 
+ 			while ((P - startCodeP) & 3) {
+@@ -1363,32 +1579,35 @@
+ 			for (i = 0; i < pairs; ++i) {
+ 				P = getU4(P, (u4T *) &match);
+ 				P = getU4(P, (u4T *) &jump);
+-				printf("%d->%d ", (int) match, (int) (((s4T) pc)+ jump) );
++        if(Out)printf("%d->%d ", (int) match, (int) (((s4T) pc)+ jump) );
+ 			}
+-			printf("%d\t", (int) (((s4T) pc)+ def));
++      if(Out)printf("%d\t", (int) (((s4T) pc)+ def));
+ 			break;
+ 		}
+ 		case 178:
+ 		case 179:
+ 		case 180:
+ 		case 181:
++      if(Out)fputc('\t', stdout);
+ 			dump_fieldref(u4);
+-			fputc('\t', stdout);
++      //if(Out)fputc('\t', stdout); iran
+ 			break;
+ 		case 182:
+ 		case 183:		// Invokespecial
+ 		case 184:
++      if(Out)fputc('\t', stdout);
+ 			dump_methodref(u4);
+-			fputc('\t', stdout);
++      //if(Out)fputc('\t', stdout); iran
+ 			break;
+ 		case 185:	// Invokeinterface
+ 		{
+ 			int		nargs;
+ 
++      if(Out)fputc('\t', stdout);
+ 			dump_interfaceref(u4);
+-			fputc('\t', stdout);
++      if(Out)fputc('\t', stdout);
+ 			nargs = *P++;
+-			printf("%d\t", nargs);
++      if(Out)printf("%d\t", nargs);
+ 			*P++;	// Reserved
+ 			break;
+ 		}
+@@ -1400,80 +1619,130 @@
+ 		case 189:
+ 		case 192:
+ 		case 193:
++      if(Out)fputc('\t', stdout);
+ 			dump_class(u4);
+-			fputc('\t', stdout);
+ 			break;
+ 		case 188:	// newarray
++      if(Out)fputc('\t', stdout);
+ 			if (u4 >= 4 && u4 <= 11) {
+-				printf("%s", array_type[u4]);
++        if(Out)printf("%s", array_type[u4]);
+ 			} else {
+-				printf("%d", s4);
++        if(Out)printf("%d", s4);
+ 			}
+-			fputc('\t', stdout);
++      if(Out)fputc('\t', stdout);
+ 			break;
+ 		case 196:	// wide
+ 			wide_index = 1;
+ 			break;
+ 		case 197:	// multianewarray
++      if(Out)printf("\t");
+ 			dump_class(u4);
+ 			u4 = *P++;	// Dimension
+-			printf("\t%d\t", u4);
++      if(Out)printf("\t%d", u4);
+ 			break;
+ 		}
+ 		if (opcodeP->flags & BRANCHX) {
+-			printf("goto %d", branch);
++      if(Out){
++        if(notabf == 0){
++          fputc('\t',stdout);
++        }
++        printf("Z%u", branch);//ifnonnull nado no goto saki
++      }
++      else{
++        Label[Lcnt++] = (u4T)branch;
++      }
+ 		}
+ 
++/*
+ 		if (opcodeP->commentP && g_verbose) {
+-			fputs("\n// ", stdout);
+-			fputs(opcodeP->commentP, stdout);
++      if(Out)fputc('\n', stdout);
++      if(Out)fputs(";// ", stdout);
++      if(Out)fputs(opcodeP->commentP, stdout);
+ 			if (opcodeP->flags & BRANCHX) {
+ 				if (opcodeP->commentP[0]) {
+-					fputc(' ', stdout);
++          if(Out)fputc(' ', stdout);
++        }
++        if(Out)printf("goto %d", branch);
+ 				}
+-				printf("goto %d", branch);
+-		}	}
+-		fputc('\n', stdout);
++    }
++*/
++    if(Out)fputc('\n', stdout);
+ 	}
+ 
+ 	assert(P == endCodeP);
++
++        P = P_bak;
++        u2 = u2_bak;
++  if (exception_table_length = u2) {
++    unsigned int start_pc, end_pc, handler_pc, i;
++
++    //if(Out)fputs("\nException table\n", stdout);
++    for (i = 0; i < exception_table_length; ++i) {
++      P = getU2(P, &u2);
++      start_pc = u2;
++      P = getU2(P, &u2);
++      end_pc = u2;
++      P = getU2(P, &u2);
++      handler_pc = u2;
++      P = getU2(P, &u2);
++      if (u2) {
++        if(Out)printf("\t.catch\t");
++        dump_class(u2);
++              if(Out){
++                printf(" from Z%u to Z%u using Z%u", start_pc, end_pc, handler_pc); 
++              }
++              else{
++                Label[Lcnt++] = (u4T)start_pc;
++                Label[Lcnt++] = (u4T)end_pc;
++                Label[Lcnt++] = (u4T)handler_pc;
++              }
++      }
++      if(Out)fputc('\n', stdout);
++    }
++        }
+ }
+ 
+ static void
+ dump_attribute(int type, const u2T *nameP, u4T length, u1T *infoP)
+ {
+ 	if (!length) {
+-		fputs("\n//\t", stdout);
++    if(Out)fputc('\n',stdout);
++    if(Out)fputs(";//\t", stdout);
+ 		dumpUnicode(nameP);
+ 	} else {
+ 		switch (type) {
+ 		case 0:	//		L"SourceFile"
+-			fputs("\n// ", stdout);
++                        /*
++      //if(Out)fputs("\n// ", stdout);
+ 			dumpUnicode(nameP);
+-			fputs(" = ", stdout);
++      if(Out)fputs(" = ", stdout);
++                        */
++      if(Out)fputs(".source\t",stdout);
+ 			dumpSourceFile(length, infoP);
+ 			break;
+ 		case 1:	//		L"ConstantValue"
+-			fputs(" = ", stdout);
++      if(Out)fputs(" = ", stdout);
+ 			dumpConstantValue(length, infoP);
+ 			return;
+ 		case 2:	//		L"Exceptions"
+ 			dumpExceptions(length, infoP);
+ 			break;
+ 		case 3: //		L"LineNumberTable"
+-			fputs("\n//\t", stdout);
++            if(Out)fputc('\n',stdout);
++      if(Out)fputs(";//\t", stdout);
+ 			dumpUnicode(nameP);
+-			fputs(" = ", stdout);
++      if(Out)fputs(" = ", stdout);
+ 			dumpLineNumberTable(length, infoP);
+ 			break;
+ 		case 4:	//		L"LocalVariableTable"
+-			fputs("\n//\t", stdout);
++            if(Out)fputc('\n',stdout);
++      if(Out)fputs(";//\t", stdout);
+ 			dumpUnicode(nameP);
+-			fputs(" = ", stdout);
++      if(Out)fputs(" = ", stdout);
+ 			dumpLocalVariableTable(length, infoP);
+ 			break;
+ 		case 5: //		L"InnerClasses"
+-			dumpInnerClasses(length, infoP);
++      //dumpInnerClasses(length, infoP);
+ 			break;
+ 		case 6:	//		L"EnclosingMethod"
+ 			dumpEnclosingMethod(length, infoP);
+@@ -1485,16 +1754,22 @@
+ 		{
+ 			u1T	*endinfoP;
+ 
+-			fputs("\n//\t", stdout);
++            if(Out)fputc('\n',stdout);
++      if(Out)fputs(";//\t", stdout);
+ 			dumpUnicode(nameP);
+-			fputs(" = ", stdout);
+-			fputs("0x", stdout);
++      if(Out)fputs(" = ", stdout);
++      if(Out)fputs("0x", stdout);
+ 			for (endinfoP = infoP + length; infoP < endinfoP; ++infoP) {
+-				printf("%02x", *infoP);
++        if(Out)printf("%02x", *infoP);
+ 			}
++      //if(Out)fputs("\n", stdout);
+ 			break;
+-	}	}}
+-	fputc('\n', stdout);
++  }
++    }
++  }
++
++  if(Out)fputc('\n', stdout);
++
+ }	
+ 
+ static void
+@@ -1553,19 +1828,19 @@
+ 		int			seen;
+ 		u2T			*interfaceP, *end_interfaceP, slot;
+ 
+-		seen = 0;
+-		fputs("implements ", stdout);
+ 		constant_poolP = g_cf.m_constant_poolP;
+ 		interfaceP     = g_cf.m_interfacesP;
+ 		for (end_interfaceP = interfaceP + count; interfaceP < end_interfaceP; ++interfaceP) {
+ 			slot = *interfaceP;
+ 			if (slot) {
+-				if (seen) {
+-					fputs(", ", stdout);
+-				}
++        if(Out)fputs(".implements ", stdout);
+ 				dump_class(slot);
+-				seen = 1;
+-}	}	}	}
++  if(Out)fputc('\n',stdout);
++      }
++    }
++    if(Out)fputc('\n',stdout);
++  }
++}
+ 
+ static void
+ dump_fields(void)
+@@ -1578,15 +1852,154 @@
+ 	
+ 		fieldP = g_cf.m_fieldsP;
+ 		for (end_fieldP = fieldP + count; fieldP < end_fieldP; ++fieldP) {
+-			fputc('\t', stdout);
++      if(Out)fputs(".field\t", stdout);
+ 			dump_access(fieldP->access_flags);
+-			dump_descriptor(get_Utf8(fieldP->descriptor_index), 0, 0);
+-			fputc(' ', stdout);
+ 			dump_Utf8(fieldP->name_index);
++      if(Out)fputc(' ', stdout);
++      dump_descriptor(get_Utf8(fieldP->descriptor_index), 0, 0);
+ 			dump_attributes(fieldP->attributes_count, fieldP->attributesP);
+-			fputc('\n', stdout);
++      if(Out)fputc('\n', stdout);
+ }	}	}
+ 
++/* add decompile protection code */
++void guardc()
++{
++  int i,n,pf,cd;
++  if(Out == 0){
++    return;
++  }
++  srand(time(NULL));
++
++  fputs("\tpop\n",stdout);
++  n = rand() % 8 + 2; // 2-9
++  pf = 0;
++  for(i=0;i<n;++i){
++    cd = rand() % 22;
++    if(cd == 0){
++      fprintf(stdout,"\tldc\t\"%c\"\n",'A' + rand()%27);
++    }
++    else
++    if(cd == 1){
++      fputs("\tiand\n",stdout);
++    }
++    else
++    if(cd == 2){
++      fputs("\tfmul\n",stdout);
++    }
++    else
++    if(cd == 3){
++      fputs("\tdup\n",stdout);
++    }
++    else
++    if(cd == 4){
++      fputs("\tdcmpg\n",stdout);
++    }
++    else
++    if(cd == 5){
++      fputs("\tddiv\n",stdout);
++    }
++    else
++    if(cd == 6){
++      fprintf(stdout,"\tldc\t%d\n",(rand()%8)-4);
++    }
++    else
++    if(cd == 7){
++      //fprintf(stdout,"\iadd\n");
++    }
++    else
++    if(cd == 8){
++      fprintf(stdout,"\ticonst_0\n");
++    }
++    else
++    if(cd == 9){
++      fprintf(stdout,"\taastore\n");
++    }
++    else
++    if(cd == 10){
++      fprintf(stdout,"\tldc\t\"%c%c\"\n",'a' + rand()%27,'a'+rand()%27);
++    }
++    else
++    if(cd == 11){
++      fprintf(stdout,"\tisub\n");
++    }
++    else
++    if(cd == 12){
++      fprintf(stdout,"\tfadd\n");
++    }
++    else
++    if(cd == 13){
++      fprintf(stdout,"\tireturn\n");
++    }
++    else
++    if(cd == 14){
++      fprintf(stdout,"\treturn\n");
++    }
++    else
++    if(cd == 15){
++      fprintf(stdout,"\tf2i\n");
++    }
++    else
++    if(cd == 16){
++      fprintf(stdout,"\ticonst_1\n");
++    }
++    else
++    if(cd == 17){
++      fprintf(stdout,"\tfsub\n");
++    }
++    else
++    if(cd == 18){
++      fprintf(stdout,"\tidiv\n");
++    }
++    else
++    if(cd == 19){
++      fprintf(stdout,"\tbipush\t%d\n",rand()%128);
++    }
++    else
++    if(cd == 20){
++      fprintf(stdout,"\tsipush\t%d\n",rand()%128);
++    }
++    else{
++      fputs("\tpop\n",stdout);
++      pf = 1;
++    }
++  }
++  if(pf == 0){
++      fputs("\tpop\n",stdout);
++  }
++  if((rand()%5)==0){
++    int gyo;
++    gyo = rand() % 1000;
++    printf("G%d:\n",gyo);
++    if((rand()%2)==0){
++      printf("\tldc\t%d.%d\n",rand() % 3000,rand() % 10);
++      printf("\tldc\t%d.%d\n",rand() % 3000,rand() % 10);
++      if((rand()%2)==0){
++        fputs("\tfadd\n",stdout);
++      }
++      else{
++        fputs("\tfmul\n",stdout);
++      }
++    }
++    else{
++      printf("\tldc\t%d\n",rand() % 3000);
++      printf("\tldc\t%d\n",rand() % 3000);
++      if((rand()%2)==0){
++        fputs("\tiadd\n",stdout);
++      }
++      else{
++        fputs("\timul\n",stdout);
++      }
++    }
++    printf("\tgoto\tG%d\n",gyo);
++  }
++  if(rand()%2){
++    fputs("\treturn\n",stdout);
++  }
++  else{
++    fputs("\tireturn\n",stdout);
++  }
++}
++
+ static void
+ dump_methods(void)
+ {
+@@ -1604,10 +2017,15 @@
+ 	
+ 		methodP = g_cf.m_methodsP;
+ 		for (end_methodP = methodP + count; methodP < end_methodP; ++methodP) {
+-			fputc('\t', stdout);
++      Lcnt = 0;
++      for(int lc=0;lc < 2;++lc){
++        Out = lc; 
++        if(Out)fputc('\n',stdout);
++        if(Out)fputs(".method", stdout);
++        if(Out)fputc('\t', stdout);
+ 			dump_access(methodP->access_flags);
+ 			dump_Utf8(methodP->name_index);
+-			fputc(' ', stdout);
++        //if(Out)fputc(' ', stdout);
+ 			
+ 			localVariableTableP = 0;
+ 
+@@ -1622,7 +2040,8 @@
+ 				nameP = get_Utf8(codeP->attribute_name_index);
+ 				if (!unicodecmp(nameP, code)) {
+ 					break;
+-			}	}
++          }
++        }
+ 
+ 			if (codeP) {
+ 				// Find the localVariableTableP
+@@ -1647,11 +2066,21 @@
+ 						break;
+ 					}
+ 					P += length;
+-			}	}
++          }
++        }
+ 			dump_descriptor(get_Utf8(methodP->descriptor_index), localVariableTableP, (methodP->access_flags & 8));
++if(Out)fputc('\n', stdout);//need
+ 			dump_attributes(attributes_cnt, attributesP);
+-			fputc('\n', stdout);
+-}	}	}
++        if(Out){
++          if(Guardf){
++            guardc();
++          }
++        }
++        if(Out)fputs(".end method\n",stdout);
++      }
++    }
++  }
++}
+ 
+ static void
+ dump(void)
+@@ -1660,44 +2089,44 @@
+ 	u2T			slot;
+ 	int			attributes_count;
+ 
+-	printf("/* Class file %s version %d.%d */\n", g_nameP, g_cf.m_major_version, g_cf.m_minor_version);
++  if(Out)printf(";/* Class file %s version %d.%d */\n", g_nameP, g_cf.m_major_version, g_cf.m_minor_version);
+ 
+ 	if (attributes_count = g_cf.m_attributes_count) {
+-		fputs("\n// Attributes \n", stdout);
++    //if(Out)fputs("\n;// Attributes \n", stdout);
+ 		dump_attributes(attributes_count, g_cf.m_attributesP);
+-		fputs("\n", stdout);
++    if(Out)fputc('\n', stdout);
+ 	}
+ 
+-	dump_imports();
++  //dump_imports();
+ 
++        if(Out)fputs(".class\t",stdout);
+ 	dump_access(g_cf.m_access_flags);
+ 	if (!(g_cf.m_access_flags & 0x0200)) {
+-		fputs("class ", stdout);
++    //if(Out)fputs("class ", stdout);
+ 	}
+ 	dump_class(g_cf.m_this_class);
+-	fputc(' ', stdout);
++  if(Out)fputc('\n', stdout);
+ 	
+ 	slot = g_cf.m_super_class;
+ 	if (slot) {
+-		fputs("extends ", stdout);
++    if(Out)fputs(".super\t", stdout);
+ 		dump_class(slot);
+-		fputc(' ', stdout);
++    if(Out)fputc('\n', stdout);
+ 	}
+ 
+ 	dump_interfaces();
+-	fputs(" {\n", stdout);
++  //if(Out)fputs(" {\n", stdout);
+ 
+-	fputs("\n\t/* Fields */\n", stdout);
++  //if(Out)fputs("\n\t/* Fields */\n", stdout);
+ 
+ 	dump_fields();
+ 
+-	fputs("\n\t/* Methods */\n", stdout);
+ 
+ 	dump_methods();
+ 
+-	fputs("}\n", stdout);
++  //if(Out)fputs("}\n", stdout);
+ 
+-	fputs("/* End of Report */\n", stdout);
++  //if(Out)fputs("/* End of Report */\n", stdout);
+ }
+ 
+ /* Read the class image from disk */
+@@ -1783,11 +2212,7 @@
+ 			case CONSTANT_Utf8:
+ 				getU2(P, &length);
+ 				P    += 2;
+-/*
+-				for (j = 0; j < length; ++j) {
+-					fputc(P[j], stderr);
+-				}
+-*/
++
+ 				unicode_length = utf8lth(length,P) + 1;
+ 				need += Align(unicode_length * sizeof(u2T));
+ 				P    += length;
+@@ -2046,6 +2471,26 @@
+ 	return(-1);
+ }
+ 
++void copyright(void)
++{
++  fprintf(stderr, "jhoja ver 1.01  Masaki Oba 2018\n");
++  fprintf(stderr, "SWAG javap2 Ver 1.02 based Java disassembler.\n");
++  fprintf(stderr, "Convert Java class file to Jasmin Java assembler code.\n");
++  fprintf(stderr, "jhoja can insert decompile protection code.(-g option)\n");
++}
++
++void help(void)
++{
++  copyright();
++  fprintf(stderr, "\nUsage: jhoja [-g] [-h] xxx.class > xxx.j\n");
++  fprintf(stderr, "   -g: Insert decompile protection code.\n");
++  fprintf(stderr, "   -h: show help.\n");
++  fprintf(stderr, "\nExamples:\n");
++  fprintf(stderr, "jhoja -g xxx.class > xxx.j\n");
++  fprintf(stderr, "jhoja xxx.class > xxx.j\n");
++  fprintf(stderr, "jhoja xxx.class | more\n");
++}
++
+ int
+ main(int argc, char **argv)
+ {
+@@ -2055,14 +2500,26 @@
+ 
+ 	exitcode = 1;
+ 
++  if(argc == 1){
++    help();
++    return 0;
++  }
++
+ 	for (i = 1; i < argc; ++i) {
+ 		argP = argv[i];
+ 		if (*argP != '-') {
+ 			break;
+ 		}
+ 		switch (argP[1]) {
++    case 'h':
++      help();
++      return 0;
++    case 'g':
++      /* add decompile protection code */
++      Guardf = 1;
++      break;
+ 		case 'c':
+-			fprintf(stderr, "Version 1.0.2 Compiled " __DATE__ " at " __TIME__ "\n");
++      fprintf(stderr, "Version 1.01 Compiled " __DATE__ " at " __TIME__ "\n");
+ 			break;
+ 		case 'v':
+ 			g_verbose = 1;
+@@ -2074,7 +2531,9 @@
+ 			g_tables = 1;
+ 			break;
+ 		default:
+-			fprintf(stderr, "Valid options:\n -v/erbose\n -d/emangle -t/ables\n");
++      fprintf(stderr, "Error: Valid option\n");
++      help();
++      //fprintf(stderr, "Valid options:\n -v/erbose\n -d/emangle -t/ables\n");
+ 			return(1);
+ 	}	}
+ 
