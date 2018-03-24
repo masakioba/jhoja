@@ -8,7 +8,7 @@ jhoja can insert decompile protection code　for JD.(-g option)
 command line tool.  
 does not have GUI.  
 SWAG javap2 Ver 1.02 based.  
-forked from SWAG javap2.  
+forked from SWAG javap2.  http://www.swag.uwaterloo.ca/javap2/
 
 ## Important problems
 Re-assemble support Ascii code sources only.  
@@ -59,3 +59,4 @@ Usage: jhoja [-g] [-h] xxx.class > xxx.j
 -h: show help. 
 
 http://www.nabeta.tk/en/jhoja/
+
