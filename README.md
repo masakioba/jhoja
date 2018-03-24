@@ -53,10 +53,21 @@ jhoja for Windows work on GNU/Linux for Intel/AMD CPU with wine.
 Apache v2 license  
 (follow the SWAG's license.)  
 
+## jhoja Source patch License
+Apache v2 license  
+(follow the SWAG's license.)  
+(C) Masaki Oba  
+admin@nabeta.tk  
+http://www.nabeta.tk/en/jhoja/  
+http://www.nabeta.tk/en/  
+http://www.nabeta.tk/  
+
+## Latest version
+jhoja Ver 1.01
+
 ## Usage
 Usage: jhoja [-g] [-h] xxx.class > xxx.j  
 -g: Insert decompile protection code.  
 -h: show help. 
-
+  
 http://www.nabeta.tk/en/jhoja/
-
