@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="robots" content="index,follow">
+  <title>asucalendar</title>
+
+<!--
+  <meta NAME="description" content="">
+-->
+
+  <meta name="keywords" content="Java,disassembler,Jasmin,decompile protection">
+</head>
+
+<body>
+<CENTER>
+  <h1>jhoja</h1>
+  <h2>The Java disassembler for Jasmin, Decompile protection tool for JD</h2>
+</CENTER>
+<!--
+<a href="http://www.nabeta.tk/jhoja/">Japanese(日本語)</a><br>
+-->
+<a href="jhoja-ja.html">Japanese(日本語)</a><br>
+<br>
+Last update 24 Mar 2018<br>
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>What is the jhoja</b></font><br>
+jhoja is a disassembler of Java class file.<br>
+Convert Java class file to Jasmin assembler code.<br>
+jhoja can insert decompile protection code.(-g option)<br>
+command line tool.<br>
+does not have GUI.<br>
+SWAG javap2 Ver 1.02 based.<br>
+<br>
+
+<font color="#000000" style="background-color:#ffbbf1" size="+1">
+<b>Important problem</b></font><br>
+Re-assemble support Ascii code sources only.<br>
+(without comments.)<br>
+not support other character codes.<br>
+jhoja support output UTF-8 strings.<br>
+but Jasmin does not support UTF-8.<br>
+if convert UTF-8 source to your local character code, may work on your locale systems.<br>
+but it will be lost cross platforms.<br>
+Decompile protection function support JD-GUI Decompiler.<br>
+but does not support Jad Decompiler.<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Download</b></font><br>
+<a href="http://www.nabeta.tk/en/jhoja/jhoja1.01.zip">Download jhoja Ver 1.01 for Windows</a><br>
+(including source patch)<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>What is the difference between jhoja and javap,SWAG javap2?</b></font><br>
+jhoja support Jasmin assembler code.<br>
+and jhoja support decompile protection function.<br>
+Oracle javap and SWAG javap2 does not support them.<br>
+jhoja output UTF-8 code.<br>
+javap2 does not support UTF-8.<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Decompile protection function</b></font><br>
+Decompile protection function support JD-GUI Decompiler.<br>
+but does not support Jad Decompiler.<br>
+Decompile protection function does not affect the speed.<br>
+but larger than normal class file.<br>
+because insert protection code.<br>
+require Jasmin(Java assembler) and JRE or JDK.<br>
+not hard protection.<br>
+if use jhoja and Jasmin then easily crack decompile protection.<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Debug information</b></font><br>
+You can read any debug information in source comments.<br>
+but re-assemble will be lost debug information in class file.<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Support OS</b></font><br>
+Binary file support Microsoft Windows.<br>
+Compiled by C++ Builder XE8.<br>
+Written by C++. but allmost C.<br>
+if recompile may work on other OS.<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Binary License</b></font><br>
+Apache v2 license.<br>
+(follow the SWAG's license.)<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>jhoja ver 1.01 Source patch License</b></font><br>
+Apache v2 license.<br>
+(follow the SWAG's license.)<br>
+(C) Masaki Oba<br> 
+admin@nabeta.tk<br>
+http://www.nabeta.tk<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Usage</b></font><br>
+Usage: jhoja [-g] [-h] xxx.class > xxx.j<br>
+   -g: Insert decompile protection code.<br>
+   -h: show help.<br>
+<br>
+Examples:<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+jhoja -g xxx.class > xxx.j<br>
+jhoja xxx.class > xxx.j<br>
+jhoja xxx.class | more<br>
+</div></code>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Examples with Jasmin</b></font><br>
+does not Insert discompile protection code.<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+jhoja xxx.class > xxx.j<br>
+java -jar jasmin.jar  xxx.j<br>
+</div></code>
+<br>
+Insert discompile protection code.<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+jhoja -g xxx.class > xxx.j<br>
+java -jar jasmin.jar  xxx.j<br>
+</div></code>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Example Decompile protection batch file  for All class files</b></font><br>
+Windows batch file.<br>
+require Jasmin(Java assembler) and JRE or JDK.<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+C:\>zenbu *.class</div></code><br>
+zenbu.bat<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+@echo off<br>
+for %%f in (%*) do (<br>
+  jhoja -g %%f > %%f.j<br>
+  java -jar jasmin.jar  %%f.j<br>
+)<br>
+</div></code>
+<br>
+
+<font size="+1" style="background-color:lightgreen;"><b>Link</b></font><br>
+<a href="http://www.swag.uwaterloo.ca/javap2/">SWAG Javap2</a><br>
+<a href="http://jasmin.sourceforge.net/">JASMIN HOME PAGE</a><br>
+
+<!--
+<br><br>
+<a href="http://www.nabeta.tk/raspberry/">Raspberry Pi3をパソコンとして使おうとする</a><br>
+<a href="http://asubrowser.tk">あーすブラウザ</a><br>
+<a href="http://onlinedict.tk">オンライン鍋田辞書</a><br>
+<a href="http://www.nabeta.tk">鍋田辞書トップ</a><br>
+</blockquote>
+-->
+<br>
+<br>
+<font size="+1" style="background-color:lightgreen;"><b>Online Dictionary site</b></font><br>
+<a href="http://www.nabeta.tk/en/online.html">Online NabetaJisho</a><br>
+<br>
+<font size="+1" style="background-color:lightgreen;"><b>Online Dictionary Quiz site</b></font><br>
+<a href="http://www.nabeta.tk/en/quiz.html">Online NabetaJisho Quiz</a><br>
+<br>
+<font size="+1" style="background-color:lightgreen;"><b>More information</b></font><br>
+<a href="http://www.nabeta.tk">NabetaJisho Japanese site</a><br>
+<br>
+<font size="+1" style="background-color:lightgreen;"><b>Mail</b></font><br>
+admin@nabeta.tk</a><br>
+<br>
+<a href="http://www.nabeta.tk/en/">NabetaJisho Homepage</a><br>
+<br>
+<br>
+<br>
+</body>
+</html>

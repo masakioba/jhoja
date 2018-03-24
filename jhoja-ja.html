@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="robots" content="index,follow">
+  <title>asucalendar</title>
+
+<!--
+  <meta NAME="description" content="">
+-->
+
+  <meta name="keywords" content="Java,逆アセンブラ,Jasmin,逆コンパイル阻止">
+</head>
+
+<body>
+<CENTER>
+  <h1>jhoja</h1>
+  <h2>Java逆アセンブラ for Jasmin, JD向け逆コンパイル阻止機能付き</h2>
+</CENTER>
+<!--
+<a href="http://www.nabeta.tk/en/jhoja/">English</a><br>
+-->
+<a href="jhoja.html">English</a><br>
+<br>
+2018.3.24更新<br>
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>jhojaとは</b></font><br>
+jhojaはJavaクラスファイルの逆アセンブラです。<br>
+JavaクラスファイルをJasminアセンブラのソースコードに変換します。<br>
+jhojaは逆コンパイルを阻止するコードを埋め込むことができます。(-g オプション)<br>
+コマンドラインツールです。<br>
+GUIには対応していません。<br>
+SWAG javap2 Ver 1.02ベースです。<br>
+<br>
+
+<font color="#000000" style="background-color:#ffbbf1" size="+1">
+<b>重大な問題</b></font><br>
+Jasminで行う再アセンブルはコメントを除きアスキーコードのソースのみに対応しています。<br>
+その他の文字コードには対応していません。<br>
+jhojaはUTF-8の出力に対応しています。<br>
+ですが、JasminはUTF-8に対応していません。<br>
+もしUTF-8のソースをお使いのシステムロケールの文字コードに変換すれば、お使いのシステムでは動くかも知れません。<br>
+(SJISに変換したところ、日本語ロケール(CP932)のWindowsでは動いているようです。)<br>
+しかしそれはクロスプラットフォームではなくなるということです。<br>
+そしてJavaの標準から外れた仕様になります。<br>
+別のロケールでは文字化けするでしょう。<br>
+Javaクラスファイルに本来のUnicodeではない文字コードの文字を含むようにJasminでアセンブルした場合はjhojaの逆アセンブル時に文字化けします。<br>
+逆コンパイル阻止(防止)機能JD-GUIなどのJavaクラスファイル逆コンパイラに効果がありますがJadには効果がありません。<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>ダウンロード</b></font><br>
+<a href="http://www.nabeta.tk/en/jhoja/jhoja1.01.zip">ダウンロード jhoja Ver 1.01 for Windows</a><br>
+(ソースパッチ同梱)<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>jhojaとjavap,SWAG javap2は何が違うのか?</b></font><br>
+jhojaはJasminでアセンブルできるソースを出力できます。<br>
+そしてjhojaには逆コンパイル阻止機能があります。<br>
+Oracle javap と SWAG javap2 はそれらの機能がありません。<br>
+jhojaはUTF-8の出力に対応しています。<br>
+javap2はUTF-8の出力に対応していません。<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>逆コンパイル阻止(防止)機能</b></font><br>
+JD-GUIなどのJavaクラスファイル逆コンパイラに効果があります。<br>
+残念ながらJadには効果がありません。<br>
+逆コンパイル阻止機能は変換したクラスファイルの実行速度には影響しません。<br>
+しかし普通のクラスファイルよりもサイズが少し大きくなります。<br>
+(デバッグ情報があれば取り除かれるので小さくなる場合もあります。)<br>
+なぜなら逆コンパイル阻止コードを埋め込むからです。<br>
+クラスファイルの変換にはJasmin(Java assembler)とJREまたはJDKが必要です。<br>
+強固な阻止機能ではありません。<br>
+jhojaとJasminを使うと割と簡単に逆コンパイル阻止を破ることが可能です。<br>
+もし完全に阻止したい場合はJavaクラスファイルでの配布は諦めるしかないと思います。<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>デバッグ情報</b></font><br>
+いくつかのデバッグ情報は逆アセンブルしたソースのコメントとして見ることができます。<br>
+ただし逆アセンブルしたソースで再アセンブルするとデバッグ情報は消失します。<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>サポートするOS</b></font><br>
+バイナリ実行ファイルはMicrosoft Windowsをサポートします<br>
+C++ Builder XE8でコンパイルしています。<br>
+C++で書かれていますが、ほとんどC言語です。<br>
+再コンパイルすれば他のOSでも動くようになるとは思います。<br>
+(極わずかなソースの修正が必要になると思います。)<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>バイナリのライセンス</b></font><br>
+Apache v2 license.<br>
+(SWAG javap2のライセンスに従っています。)<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>jhoja Ver 1.01のソースパッチのライセンス</b></font><br>
+Apache v2 license.<br>
+(SWAG javap2のライセンスに合わせました。)<br>
+(C) Masaki Oba<br> 
+admin@nabeta.tk<br>
+http://www.nabeta.tk<br>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>使い方</b></font><br>
+使い方: jhoja [-g] [-h] xxx.class > xxx.j<br>
+   -g: 逆コンパイル阻止コードを埋め込む。<br>
+   -h: ヘルプを表示する。<br>
+<br>
+例:<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+jhoja -g xxx.class > xxx.j<br>
+jhoja xxx.class > xxx.j<br>
+jhoja xxx.class | more<br>
+</div></code>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>Jasminと合わせた使い方の例</b></font><br>
+逆コンパイル阻止コードを埋め込まない場合。<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+jhoja xxx.class > xxx.j<br>
+java -jar jasmin.jar  xxx.j<br>
+</div></code>
+<br>
+逆コンパイル阻止コードを埋め込む場合。<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+jhoja -g xxx.class > xxx.j<br>
+java -jar jasmin.jar  xxx.j<br>
+</div></code>
+<br>
+
+<font color="#000000" style="background-color:#bbf1ff" size="+1">
+<b>全クラスファイルの逆コンパイル阻止バッチファイルの例</b></font><br>
+Windowsのバッチファイルです。<br>
+Jasmin(Java assembler)とJREまたはJDKが必要です。<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+C:\>zenbu *.class</div></code><br>
+zenbu.bat<br>
+<code><div style="background: #FFFACD; border: 1px solid #D3D3D3; padding-left:10px; padding-right:10px; padding-top:10px; padding-bottom:10px;">
+@echo off<br>
+for %%f in (%*) do (<br>
+  jhoja -g %%f > %%f.j<br>
+  java -jar jasmin.jar  %%f.j<br>
+)<br>
+</div></code>
+(UNIX系シェルスクリプトで書く場合は$をなんらかの方法でエスケープしないとJavaのファイル名に含まれる$と衝突してうまくいかない。)<br>
+<br>
+
+<font size="+1" style="background-color:lightgreen;"><b>Link</b></font><br>
+<a href="http://www.swag.uwaterloo.ca/javap2/">SWAG Javap2</a><br>
+<a href="http://jasmin.sourceforge.net/">JASMIN HOME PAGE</a><br>
+<br>
+
+<font size="+1" style="background-color:lightgreen;"><b>メール</b></font><br>
+admin@nabeta.tk</a><br>
+
+<br>
+<a href="http://www.nabeta.tk/raspberry/">Raspberry Pi3をパソコンとして使おうとする</a><br>
+<a href="http://asubrowser.tk">あーすブラウザ</a><br>
+<a href="http://onlinedict.tk">オンライン鍋田辞書</a><br>
+<a href="http://www.nabeta.tk">鍋田辞書トップ</a><br>
+</blockquote>
+<br>
+<br>
+<br>
+</body>
+</html>
