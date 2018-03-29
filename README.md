@@ -1,5 +1,6 @@
 # jhoja
-jhoja is the Java disassembler for Jasmin
+jhoja is the Java disassembler for Jasmin.  
+support Decompile protection function for JD-GUI.
 
 ## What is the jhoja
 jhoja is a disassembler of Java class file.  
