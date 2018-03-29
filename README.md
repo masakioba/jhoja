@@ -22,7 +22,7 @@ Decompile protection function support JD-GUI Decompiler.
 but does not support Jad Decompiler.  
 
 ## What is the difference between jhoja and javap,SWAG javap2?
-hoja support Jasmin assembler code.  
+jhoja support Jasmin assembler format code.  
 and jhoja support decompile protection function.  
 Oracle javap and SWAG javap2 does not support them.  
 jhoja output UTF-8 code.  
