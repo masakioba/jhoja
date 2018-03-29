@@ -33,7 +33,7 @@ javap2 does not support UTF-8.
 Decompile protection function support JD-GUI Decompiler.  
 but does not support Jad Decompiler.  
 Decompile protection function does not affect the speed.  
-but larger than normal class file.  
+but file size larger than normal class file.  
 because insert protection code.  
 require Jasmin(Java assembler) and JRE or JDK.  
 not hard protection.  
